@@ -1,6 +1,6 @@
 import React from 'react';
-import { Film, RefreshCw, Sparkles, Clock, Eye } from 'lucide-react';
-import { Language, ShortsScript, Scene } from '../types';
+import { Film, RefreshCw, Sparkles, Clock } from 'lucide-react';
+import { Language, ShortsScript } from '../types';
 import { translations } from '../constants/translations';
 import { buildPollinationsImageUrl, preloadImage } from '../services/pollinationsService';
 
@@ -52,14 +52,21 @@ export const SceneTimeline: React.FC<SceneTimelineProps> = ({
           <span>{t.scenesTitle}</span>
         </h3>
         <span className="text-[11px] text-slate-400 font-mono">
-          4 Scenes • 9:16 Vertical
+          {scenes.length} {lang === 'ar' ? 'مشاهد متناسقة' : 'Scenes'} • 9:16 Vertical
         </span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 max-h-[460px] overflow-y-auto pr-1">
         {scenes.map((scene, idx) => {
           const isActive = idx === activeSceneIndex;
           const isRegen = regeneratingIndex === idx;
+
+          let startSec = 0;
+          for (let i = 0; i < idx; i++) {
+            startSec += scenes[i].durationSeconds || 6;
+          }
+          const dur = scene.durationSeconds || 6;
+          const endSec = startSec + dur;
 
           return (
             <div
@@ -107,7 +114,7 @@ export const SceneTimeline: React.FC<SceneTimelineProps> = ({
                     </span>
                     <span className="text-slate-400 font-mono text-[10px] flex items-center gap-1">
                       <Clock className="w-3 h-3 text-slate-400" />
-                      {idx * 7}-{(idx + 1) * 7}s
+                      {Math.round(startSec)}-{Math.round(endSec)}s
                     </span>
                   </div>
 

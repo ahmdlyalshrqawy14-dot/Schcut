@@ -1,4 +1,5 @@
 export type Language = 'ar' | 'en';
+export type ProductionMode = 'manual' | 'scheduled';
 
 export interface Scene {
   id: number;
@@ -6,11 +7,21 @@ export interface Scene {
   imagePrompt: string;
   imageUrl: string;
   durationSeconds: number;
+  startTimeSeconds?: number;
+  endTimeSeconds?: number;
   loadedImage?: HTMLImageElement | null;
   imageLoading?: boolean;
   audioBuffer?: AudioBuffer | null;
   audioBlob?: Blob | null;
   audioUrl?: string | null;
+}
+
+export interface ContinuousAudioTrack {
+  fullText: string;
+  audioBuffer?: AudioBuffer | null;
+  audioBlob?: Blob | null;
+  audioUrl?: string | null;
+  totalDurationSeconds: number;
 }
 
 export interface ShortsScript {
@@ -22,6 +33,8 @@ export interface ShortsScript {
   audience: string;
   videoLanguage: Language;
   customFileName?: string;
+  fullScriptText?: string;
+  continuousAudio?: ContinuousAudioTrack | null;
   scenes: Scene[];
 }
 
@@ -85,6 +98,32 @@ export interface AzureSpeechConfig {
   pitch: number;
 }
 
+export interface ScheduleConfig {
+  enabled: boolean;
+  scheduledTime: string; // e.g. "14:00"
+  dailyVideoCount: number; // 1 to 6
+  imagesPerVideo: number; // 4 to 12
+  language: Language;
+  privacy: YouTubePrivacy;
+  category: string;
+  channelNiche?: string; // custom niche e.g. "أسرار التاريخ والحضارات"
+  customTopicsText: string; // optional multi-line topics
+  lastRunDate?: string; // YYYY-MM-DD
+}
+
+export interface PublishedVideoRecord {
+  id: string;
+  topic: string;
+  title: string;
+  youtubeId?: string;
+  youtubeUrl?: string;
+  privacy: YouTubePrivacy;
+  timestamp: number;
+  thumbnailUrl?: string;
+  status: 'success' | 'failed';
+  errorMessage?: string;
+}
+
 export interface QueueItem {
   id: string;
   topic: string;
@@ -99,5 +138,6 @@ export interface QueueItem {
   script?: ShortsScript;
   createdAt: number;
 }
+
 
 

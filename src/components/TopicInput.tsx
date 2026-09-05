@@ -36,16 +36,9 @@ export const TopicInput: React.FC<TopicInputProps> = ({
   isGenerating,
 }) => {
   const t = translations[uiLang];
-  const estimatedSeconds = sceneCount * 6;
-  const estimatedMins = Math.floor(estimatedSeconds / 60);
-  const remainingSecs = estimatedSeconds % 60;
-  const durationText = estimatedMins > 0 
-    ? `${estimatedMins}m ${remainingSecs}s`
-    : `${estimatedSeconds}s`;
 
   return (
     <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-5">
-      
       {/* 1. Topic Input Area */}
       <div className="space-y-2">
         <label className="block text-xs uppercase tracking-widest text-slate-400 font-bold flex items-center justify-between">
@@ -55,7 +48,7 @@ export const TopicInput: React.FC<TopicInputProps> = ({
           </span>
           <span className="text-[11px] text-slate-400 font-mono font-medium lowercase tracking-normal flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-rose-400" />
-            {t.estimatedDuration} ~{durationText} ({sceneCount} {t.scenesCountSuffix})
+            {t.estimatedDuration} ~58s ({sceneCount} {t.scenesCountSuffix})
           </span>
         </label>
 
@@ -112,9 +105,8 @@ export const TopicInput: React.FC<TopicInputProps> = ({
         </div>
       </div>
 
-      {/* 2. Control Row: Video Language, Scene Count Slider (4-50), and Output Filename */}
+      {/* 2. Control Row: Video Language, Scene Count Slider (4-12), and Output Filename */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1 border-t border-white/10">
-        
         {/* A. Video Language Selector */}
         <div className="space-y-1.5 bg-black/30 p-3.5 rounded-2xl border border-white/5">
           <label className="text-[11px] uppercase tracking-wider text-slate-400 font-bold flex items-center gap-1.5">
@@ -151,12 +143,12 @@ export const TopicInput: React.FC<TopicInputProps> = ({
           </div>
         </div>
 
-        {/* B. Scene Count Slider (4 to 50) */}
+        {/* B. Image Count Slider (4 to 12) */}
         <div className="space-y-1.5 bg-black/30 p-3.5 rounded-2xl border border-white/5">
           <div className="flex justify-between items-center text-[11px] uppercase tracking-wider text-slate-400 font-bold">
             <span className="flex items-center gap-1.5">
               <Sliders className="w-3.5 h-3.5 text-rose-400" />
-              {t.sceneCountLabel}
+              {t.imagesCountLabel}
             </span>
             <span className="text-rose-400 font-mono text-xs bg-rose-500/10 px-2 py-0.5 rounded-lg border border-rose-500/20">
               {sceneCount} {t.scenesCountSuffix}
@@ -166,7 +158,7 @@ export const TopicInput: React.FC<TopicInputProps> = ({
             <input
               type="range"
               min={4}
-              max={50}
+              max={12}
               step={1}
               value={sceneCount}
               disabled={isGenerating}
@@ -176,29 +168,20 @@ export const TopicInput: React.FC<TopicInputProps> = ({
             <input
               type="number"
               min={4}
-              max={50}
+              max={12}
               value={sceneCount}
               disabled={isGenerating}
               onChange={(e) => {
-                const val = Math.max(4, Math.min(50, Number(e.target.value) || 4));
+                const val = Math.max(4, Math.min(12, Number(e.target.value) || 6));
                 onChangeSceneCount(val);
               }}
               className="w-14 bg-black/40 border border-white/10 rounded-xl px-2 py-1 text-xs text-center font-mono text-slate-200 outline-none focus:border-rose-500"
             />
           </div>
 
-          {/* Shorts Duration Warning / Notice */}
-          <div className="pt-1">
-            {sceneCount <= 12 ? (
-              <p className="text-[10px] text-emerald-400 font-medium flex items-center gap-1 bg-emerald-950/30 px-2 py-1 rounded-lg border border-emerald-500/20">
-                <span>{t.shortsDurationOk}</span>
-              </p>
-            ) : (
-              <p className="text-[10px] text-amber-300 font-medium flex items-start gap-1 bg-amber-950/40 px-2 py-1.5 rounded-lg border border-amber-500/30 leading-snug">
-                <span>{t.shortsDurationWarning}</span>
-              </p>
-            )}
-          </div>
+          <p className="text-[10px] text-emerald-400 font-medium flex items-center gap-1 bg-emerald-950/30 px-2 py-1 rounded-lg border border-emerald-500/20 mt-1">
+            <span>{t.shortsDurationOk}</span>
+          </p>
         </div>
 
         {/* C. Output File Name Input */}
@@ -224,7 +207,6 @@ export const TopicInput: React.FC<TopicInputProps> = ({
             💡 {t.customFileNameHint}
           </p>
         </div>
-
       </div>
 
       {/* Preset Pills */}
@@ -272,4 +254,3 @@ export const TopicInput: React.FC<TopicInputProps> = ({
     </div>
   );
 };
-

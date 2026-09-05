@@ -5,6 +5,8 @@ export class AzureSpeechService {
 
   private audioContext: AudioContext | null = null;
   private currentSourceNode: AudioBufferSourceNode | null = null;
+  private destinationNode: MediaStreamAudioDestinationNode | null = null;
+  private masterGain: GainNode | null = null;
 
   // Curated fallback list of popular Azure Neural voices when offline or before fetching
   public static readonly DEFAULT_NEURAL_VOICES: AzureVoiceInfo[] = [
@@ -328,18 +330,55 @@ export class AzureSpeechService {
   }
 
   /**
-   * Play an AudioBuffer with callback on completion
+   * Play an AudioBuffer with offset support and callback on completion
    */
   public playAudioBuffer(
     buffer: AudioBuffer,
-    destinationGain?: GainNode,
-    onEnded?: () => void
+    offsetOrGain?: number | GainNode | (() => void),
+    destinationGainOrEnded?: GainNode | (() => void),
+    onEndedCallback?: () => void
   ): AudioBufferSourceNode {
     this.stopPlayback();
+
+    let offsetSeconds = 0;
+    let destinationGain: GainNode | undefined = undefined;
+    let onEnded: (() => void) | undefined = undefined;
+
+    if (typeof offsetOrGain === 'number') {
+      offsetSeconds = offsetOrGain;
+      if (destinationGainOrEnded && typeof destinationGainOrEnded !== 'function') {
+        destinationGain = destinationGainOrEnded;
+      } else if (typeof destinationGainOrEnded === 'function') {
+        onEnded = destinationGainOrEnded;
+      }
+      if (onEndedCallback) {
+        onEnded = onEndedCallback;
+      }
+    } else if (typeof offsetOrGain === 'function') {
+      onEnded = offsetOrGain;
+    } else if (offsetOrGain) {
+      destinationGain = offsetOrGain;
+      if (typeof destinationGainOrEnded === 'function') {
+        onEnded = destinationGainOrEnded;
+      }
+    }
 
     if (!this.audioContext) {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       this.audioContext = new AudioCtx();
+    }
+    if (this.audioContext.state === 'suspended') {
+      this.audioContext.resume();
+    }
+
+    if (!this.destinationNode) {
+      this.destinationNode = this.audioContext.createMediaStreamDestination();
+    }
+    if (!this.masterGain) {
+      this.masterGain = this.audioContext.createGain();
+      this.masterGain.gain.setValueAtTime(1.0, this.audioContext.currentTime);
+      this.masterGain.connect(this.audioContext.destination);
+      this.masterGain.connect(this.destinationNode);
     }
 
     const source = this.audioContext.createBufferSource();
@@ -348,7 +387,7 @@ export class AzureSpeechService {
     if (destinationGain) {
       source.connect(destinationGain);
     } else {
-      source.connect(this.audioContext.destination);
+      source.connect(this.masterGain);
     }
 
     source.onended = () => {
@@ -356,9 +395,21 @@ export class AzureSpeechService {
       if (onEnded) onEnded();
     };
 
-    source.start(0);
+    const safeOffset = Math.max(0, Math.min(Math.max(0, buffer.duration - 0.05), offsetSeconds));
+    source.start(0, safeOffset);
     this.currentSourceNode = source;
     return source;
+  }
+
+  /**
+   * Get audio stream track for video recording
+   */
+  public getAudioStreamTrack(): MediaStreamTrack | null {
+    if (this.destinationNode && this.destinationNode.stream) {
+      const tracks = this.destinationNode.stream.getAudioTracks();
+      return tracks.length > 0 ? tracks[0] : null;
+    }
+    return null;
   }
 
   /**

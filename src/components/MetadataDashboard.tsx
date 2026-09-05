@@ -15,18 +15,15 @@ import {
 } from 'lucide-react';
 import { Language, ShortsScript } from '../types';
 import { translations } from '../constants/translations';
-import { YouTubeUploader } from './YouTubeUploader';
 
 interface MetadataDashboardProps {
   script: ShortsScript | null;
   lang: Language;
-  ambientMusicEnabled?: boolean;
 }
 
-export const MetadataDashboard: React.FC<MetadataDashboardProps> = ({ script, lang, ambientMusicEnabled = false }) => {
+export const MetadataDashboard: React.FC<MetadataDashboardProps> = ({ script, lang }) => {
   const t = translations[lang];
   const [copiedField, setCopiedField] = useState<string | null>(null);
-
 
   const copyToClipboard = (text: string, fieldKey: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -81,13 +78,6 @@ export const MetadataDashboard: React.FC<MetadataDashboardProps> = ({ script, la
 
   return (
     <div className="space-y-6">
-      {/* 🚀 YouTube Direct Video Upload Card (YouTube Data API v3 & GIS) */}
-      <YouTubeUploader
-        script={script}
-        lang={lang}
-        ambientMusicEnabled={ambientMusicEnabled}
-      />
-
       {/* 📊 SEO Metadata & Tags Card */}
       <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-5">
         {/* Header */}

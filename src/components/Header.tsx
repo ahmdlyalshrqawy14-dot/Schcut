@@ -1,5 +1,5 @@
 import React from 'react';
-import { Globe, Video, FileCode, Volume2, VolumeX, Sparkles } from 'lucide-react';
+import { Globe, Video, FileCode, Volume2, VolumeX, Sparkles, Settings } from 'lucide-react';
 import { Language } from '../types';
 import { translations } from '../constants/translations';
 
@@ -7,6 +7,7 @@ interface HeaderProps {
   lang: Language;
   onToggleLang: () => void;
   onOpenExportModal: () => void;
+  onOpenSettings: () => void;
   ambientMusicEnabled: boolean;
   onToggleAmbientMusic: () => void;
 }
@@ -15,6 +16,7 @@ export const Header: React.FC<HeaderProps> = ({
   lang,
   onToggleLang,
   onOpenExportModal,
+  onOpenSettings,
   ambientMusicEnabled,
   onToggleAmbientMusic,
 }) => {
@@ -62,6 +64,16 @@ export const Header: React.FC<HeaderProps> = ({
               <VolumeX className="w-4 h-4" />
             )}
             <span className="hidden md:inline text-xs">{t.ambientMusic}</span>
+          </button>
+
+          {/* Settings Hub Button */}
+          <button
+            onClick={onOpenSettings}
+            className="px-3 py-1.5 rounded-xl text-xs font-bold border border-white/10 bg-white/5 backdrop-blur-md hover:bg-white/10 active:scale-95 text-slate-200 hover:text-white transition-all flex items-center gap-1.5 shadow-sm"
+            title={t.settingsModalTitle}
+          >
+            <Settings className="w-4 h-4 text-rose-400" />
+            <span className="hidden sm:inline">{t.settingsNavBtn}</span>
           </button>
 
           {/* Export Standalone index.html for GitHub Pages */}

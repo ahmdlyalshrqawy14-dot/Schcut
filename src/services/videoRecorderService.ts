@@ -53,7 +53,7 @@ export class VideoRecorderService {
         const mimeType = this.getBestMimeType();
         const recorderOptions: MediaRecorderOptions = {
           mimeType,
-          videoBitsPerSecond: 8000000, // 8 Mbps for sharp 720x1280
+          videoBitsPerSecond: 12000000, // 12 Mbps for crystal clear 1080x1920 Full HD 60fps
         };
 
         this.mediaRecorder = new MediaRecorder(combinedStream, recorderOptions);

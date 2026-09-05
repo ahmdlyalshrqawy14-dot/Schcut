@@ -17,6 +17,7 @@ import { translations } from '../constants/translations';
 import { speechService } from '../services/speechService';
 import { azureSpeechService } from '../services/azureSpeechService';
 import { videoRecorderService } from '../services/videoRecorderService';
+import { soundFxService } from '../services/soundFxService';
 
 interface CanvasPlayerProps {
   script: ShortsScript | null;
@@ -49,11 +50,12 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
   const animationFrameRef = useRef<number | null>(null);
   const lastTimestampRef = useRef<number | null>(null);
   const lastSpokenSceneRef = useRef<number>(-1);
+  const lastActiveSceneIndexRef = useRef<number>(-1);
   const isPlayingRef = useRef<boolean>(false);
   const currentTimeRef = useRef<number>(0);
   const playbackRateRef = useRef<number>(1.0);
 
-  const totalDuration = script?.scenes?.reduce((acc, s) => acc + (s.durationSeconds || 6), 0) || 24;
+  const totalDuration = script?.scenes?.reduce((acc, s) => acc + (s.durationSeconds || 6), 0) || 58;
   const videoLang = script?.videoLanguage || uiLang;
 
   // Sync refs
@@ -78,87 +80,92 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
     [script]
   );
 
-  // Draw placeholder canvas if no script or images
+  // Draw placeholder canvas if no script or images (1080x1920)
   const drawPlaceholder = useCallback((ctx: CanvasRenderingContext2D) => {
     ctx.fillStyle = '#05070a';
-    ctx.fillRect(0, 0, 720, 1280);
+    ctx.fillRect(0, 0, 1080, 1920);
 
-    const grad = ctx.createLinearGradient(0, 0, 720, 1280);
+    const grad = ctx.createLinearGradient(0, 0, 1080, 1920);
     grad.addColorStop(0, 'rgba(225, 29, 72, 0.15)');
     grad.addColorStop(0.5, 'rgba(220, 38, 38, 0.1)');
     grad.addColorStop(1, 'rgba(15, 23, 42, 0.95)');
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 720, 1280);
+    ctx.fillRect(0, 0, 1080, 1920);
 
     ctx.fillStyle = '#f43f5e';
-    ctx.font = 'bold 44px Cairo, Plus Jakarta Sans, sans-serif';
+    ctx.font = 'bold 64px Cairo, Plus Jakarta Sans, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('DocuShorts AI 🎬', 360, 600);
+    ctx.fillText('DocuShorts AI 🎬', 540, 900);
 
     ctx.fillStyle = '#94a3b8';
-    ctx.font = '22px Cairo, Plus Jakarta Sans, sans-serif';
+    ctx.font = '32px Cairo, Plus Jakarta Sans, sans-serif';
     ctx.fillText(
       uiLang === 'ar' ? 'أدخل موضوعاً واضغط "إنشاء الفيديو الآن"' : 'Enter topic & click "Generate Video Now"',
-      360,
-      660
+      540,
+      980
     );
 
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(30, 30, 660, 1220);
+    ctx.lineWidth = 6;
+    ctx.strokeRect(40, 40, 1000, 1840);
   }, [uiLang]);
 
-  // Subtitle Drawing Helper
+  // Professional Cinematic Subtitle Drawing Helper (1080p Clean Typography)
   const drawSubtitles = useCallback(
     (ctx: CanvasRenderingContext2D, text: string) => {
       ctx.save();
-      ctx.font = 'bold 36px Cairo, Plus Jakarta Sans, sans-serif';
+      ctx.font = 'bold 50px Cairo, Plus Jakarta Sans, sans-serif';
       ctx.textAlign = 'center';
       ctx.direction = videoLang === 'ar' ? 'rtl' : 'ltr';
 
-      // Word wrap
-      const words = text.split(' ');
+      const words = text.split(/\s+/).filter(Boolean);
+      if (words.length === 0) {
+        ctx.restore();
+        return;
+      }
+
+      // Line wrapping logic for 1080p canvas width
+      const maxWidth = 880;
       const lines: string[] = [];
       let currentLine = '';
 
-      for (let n = 0; n < words.length; n++) {
-        const testLine = currentLine + words[n] + ' ';
+      for (let i = 0; i < words.length; i++) {
+        const testLine = currentLine + words[i] + ' ';
         const metrics = ctx.measureText(testLine);
-        if (metrics.width > 580 && n > 0) {
+        if (metrics.width > maxWidth && i > 0) {
           lines.push(currentLine.trim());
-          currentLine = words[n] + ' ';
+          currentLine = words[i] + ' ';
         } else {
           currentLine = testLine;
         }
       }
       lines.push(currentLine.trim());
 
-      const lineHeight = 56;
-      const startY = 1040 - ((lines.length - 1) * lineHeight) / 2;
+      const lineHeight = 80;
+      const startY = 1560 - ((lines.length - 1) * lineHeight) / 2;
 
-      // Draw high contrast rounded pill backdrop
-      lines.forEach((line, index) => {
-        const lineY = startY + index * lineHeight;
-        const textWidth = ctx.measureText(line).width;
-        const pillWidth = Math.max(textWidth + 48, 160);
-        const pillHeight = 50;
+      lines.forEach((line, lineIndex) => {
+        const lineY = startY + lineIndex * lineHeight;
+        const totalLineWidth = ctx.measureText(line).width;
+        const pillWidth = Math.max(totalLineWidth + 70, 240);
+        const pillHeight = 72;
 
-        // Background shadow & fill
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
+        // Dark frosted backdrop pill
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
         ctx.beginPath();
-        ctx.roundRect(360 - pillWidth / 2, lineY - 38, pillWidth, pillHeight, 14);
+        ctx.roundRect(540 - pillWidth / 2, lineY - 54, pillWidth, pillHeight, 20);
         ctx.fill();
 
         // Highlighting border
-        ctx.strokeStyle = 'rgba(244, 63, 94, 0.4)';
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(244, 63, 94, 0.45)';
+        ctx.lineWidth = 2.5;
         ctx.stroke();
 
-        // Text rendering
+        // Clean white text with subtle shadow
         ctx.fillStyle = '#ffffff';
         ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
-        ctx.shadowBlur = 10;
-        ctx.fillText(line, 360, lineY);
+        ctx.shadowBlur = 12;
+        ctx.fillText(line, 540, lineY);
       });
 
       ctx.restore();
@@ -166,7 +173,7 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
     [videoLang]
   );
 
-  // Main Canvas Render Frame Function
+  // Main Canvas Render Frame Function (1080x1920 Full HD with Cross-Fade & Dust Overlay)
   const renderFrame = useCallback(
     (time: number) => {
       const canvas = canvasRef.current;
@@ -181,6 +188,7 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
 
       const sceneIndex = getCurrentSceneIndex(time);
       const currentScene = script.scenes[sceneIndex];
+      const nextScene = script.scenes[sceneIndex + 1] || null;
 
       // Calculate time progress within current scene
       let sceneStartTime = 0;
@@ -189,89 +197,125 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
       }
       const sceneDur = currentScene?.durationSeconds || 6;
       const timeInScene = Math.max(0, time - sceneStartTime);
-      const progressInScene = Math.min(1, timeInScene / sceneDur);
+      const progressInScene = Math.min(1, Math.max(0, timeInScene / sceneDur));
 
-      // Draw Scene Image with Ken Burns zoom & subtle pan
-      const img = currentScene?.loadedImage;
-      if (img && img.complete && img.naturalWidth > 0) {
+      // 1. Background clear
+      ctx.fillStyle = '#0a0f1d';
+      ctx.fillRect(0, 0, 1080, 1920);
+
+      // 2. Draw Current Scene Image with Ken Burns zoom & subtle pan
+      const currentImg = currentScene?.loadedImage;
+      if (currentImg && currentImg.complete && currentImg.naturalWidth > 0) {
         ctx.save();
-        const scale = 1.0 + progressInScene * 0.14;
-        const panX = (sceneIndex % 2 === 0 ? 1 : -1) * (progressInScene * 25);
-        const panY = progressInScene * 18;
+        const scale = 1.0 + progressInScene * 0.12;
+        const panX = (sceneIndex % 2 === 0 ? 1 : -1) * (progressInScene * 35);
+        const panY = progressInScene * 25;
 
-        ctx.translate(360 + panX, 640 + panY);
+        ctx.translate(540 + panX, 960 + panY);
         ctx.scale(scale, scale);
-        ctx.drawImage(img, -360, -640, 720, 1280);
+        ctx.drawImage(currentImg, -540, -960, 1080, 1920);
         ctx.restore();
-      } else {
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(0, 0, 720, 1280);
       }
 
-      // Cinematic Vignettes
-      const topGrad = ctx.createLinearGradient(0, 0, 0, 240);
-      topGrad.addColorStop(0, 'rgba(0, 0, 0, 0.75)');
+      // 3. Smooth Cross-Fade Transition into Next Image during last 0.8s
+      const transitionDuration = 0.8;
+      const timeLeftInScene = sceneDur - timeInScene;
+      if (timeLeftInScene < transitionDuration && nextScene?.loadedImage && nextScene.loadedImage.complete) {
+        const transitionProgress = 1 - Math.max(0, timeLeftInScene / transitionDuration);
+        ctx.save();
+        ctx.globalAlpha = transitionProgress;
+        const nextScale = 1.0 + (transitionProgress * 0.03);
+        ctx.translate(540, 960);
+        ctx.scale(nextScale, nextScale);
+        ctx.drawImage(nextScene.loadedImage, -540, -960, 1080, 1920);
+        ctx.restore();
+      }
+
+      // 4. Cinematic Ambient Atmosphere: Floating Dust Particles & Light Leak
+      ctx.save();
+      const flareGrad = ctx.createRadialGradient(900, 200, 20, 900, 200, 600);
+      flareGrad.addColorStop(0, 'rgba(251, 146, 60, 0.12)');
+      flareGrad.addColorStop(0.6, 'rgba(244, 63, 94, 0.04)');
+      flareGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = flareGrad;
+      ctx.fillRect(0, 0, 1080, 800);
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
+      for (let p = 0; p < 24; p++) {
+        const seed = p * 137.5;
+        const px = (seed + time * 18 + Math.sin(time * 0.5 + p) * 30) % 1080;
+        const py = (1920 - ((seed * 2 + time * 32) % 1920));
+        const pr = 1.5 + (p % 3);
+        ctx.beginPath();
+        ctx.arc(px, py, pr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // 5. Cinematic Top & Bottom Vignettes
+      const topGrad = ctx.createLinearGradient(0, 0, 0, 360);
+      topGrad.addColorStop(0, 'rgba(0, 0, 0, 0.8)');
       topGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = topGrad;
-      ctx.fillRect(0, 0, 720, 240);
+      ctx.fillRect(0, 0, 1080, 360);
 
-      const bottomGrad = ctx.createLinearGradient(0, 780, 0, 1280);
+      const bottomGrad = ctx.createLinearGradient(0, 1180, 0, 1920);
       bottomGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-      bottomGrad.addColorStop(0.5, 'rgba(0, 0, 0, 0.75)');
+      bottomGrad.addColorStop(0.4, 'rgba(0, 0, 0, 0.7)');
       bottomGrad.addColorStop(1, 'rgba(0, 0, 0, 0.95)');
       ctx.fillStyle = bottomGrad;
-      ctx.fillRect(0, 780, 720, 500);
+      ctx.fillRect(0, 1180, 1080, 740);
 
-      // Top Progress Segment Bar
-      const barY = 32;
-      const totalWidth = 660;
-      const startX = 30;
-      const segGap = Math.max(2, 6 - Math.floor(script.scenes.length / 10));
+      // 6. Top Progress Segment Bar
+      const barY = 48;
+      const totalWidth = 990;
+      const startX = 45;
       const sceneCount = script.scenes.length;
+      const segGap = Math.max(3, 8 - Math.floor(sceneCount / 8));
       const segWidth = (totalWidth - (sceneCount - 1) * segGap) / sceneCount;
 
       for (let i = 0; i < sceneCount; i++) {
         const segX = startX + i * (segWidth + segGap);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
         ctx.beginPath();
-        ctx.roundRect(segX, barY, segWidth, 5, 3);
+        ctx.roundRect(segX, barY, segWidth, 8, 4);
         ctx.fill();
 
         if (i < sceneIndex) {
           ctx.fillStyle = '#f43f5e';
           ctx.beginPath();
-          ctx.roundRect(segX, barY, segWidth, 5, 3);
+          ctx.roundRect(segX, barY, segWidth, 8, 4);
           ctx.fill();
         } else if (i === sceneIndex) {
           ctx.fillStyle = '#f43f5e';
           ctx.beginPath();
-          ctx.roundRect(segX, barY, segWidth * progressInScene, 5, 3);
+          ctx.roundRect(segX, barY, segWidth * progressInScene, 8, 4);
           ctx.fill();
         }
       }
 
-      // Shorts Watermark Badge
+      // 7. Shorts Watermark Badge
       ctx.save();
       ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
       ctx.beginPath();
-      ctx.roundRect(540, 56, 150, 36, 18);
+      ctx.roundRect(810, 84, 225, 54, 27);
       ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.lineWidth = 1.5;
       ctx.stroke();
 
       ctx.fillStyle = '#ef4444';
       ctx.beginPath();
-      ctx.arc(562, 74, 5, 0, Math.PI * 2);
+      ctx.arc(845, 111, 7, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 16px Plus Jakarta Sans, sans-serif';
+      ctx.font = 'bold 24px Plus Jakarta Sans, sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText('SHORTS', 576, 80);
+      ctx.fillText('SHORTS', 866, 120);
       ctx.restore();
 
-      // Draw Subtitles
+      // 8. Draw Subtitles (Clean High-Contrast Typography)
       if (currentScene && currentScene.text) {
         drawSubtitles(ctx, currentScene.text);
       }
@@ -279,19 +323,24 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
     [script, getCurrentSceneIndex, drawPlaceholder, drawSubtitles]
   );
 
-  // Trigger narration speech when scene changes during playback
+  // Trigger speech when scene changes during playback (only for fallback TTS)
   const triggerSceneSpeech = useCallback(
     (sceneIndex: number) => {
       if (!isPlayingRef.current || isMuted || !script || !script.scenes[sceneIndex]) return;
+
+      // If we have a single continuous audio recording for the whole video, it's already playing
+      if (script.continuousAudio?.audioBuffer) {
+        return;
+      }
 
       if (lastSpokenSceneRef.current === sceneIndex) return;
       lastSpokenSceneRef.current = sceneIndex;
 
       const scene = script.scenes[sceneIndex];
 
-      // If neural audio buffer was synthesized with Azure, play exact high-fidelity audio
+      // If neural audio buffer was synthesized per scene
       if (scene.audioBuffer) {
-        azureSpeechService.playAudioBuffer(scene.audioBuffer);
+        azureSpeechService.playAudioBuffer(scene.audioBuffer, 0);
       } else {
         speechService.speakText(scene.text, videoLang, playbackRateRef.current);
       }
@@ -316,12 +365,20 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
       if (nextTime >= totalDuration) {
         nextTime = 0;
         lastSpokenSceneRef.current = -1;
+        if (script?.continuousAudio?.audioBuffer && !isMuted) {
+          azureSpeechService.playAudioBuffer(script.continuousAudio.audioBuffer, 0);
+        }
       }
 
       currentTimeRef.current = nextTime;
       setCurrentTime(nextTime);
 
       const activeScene = getCurrentSceneIndex(nextTime);
+      if (lastActiveSceneIndexRef.current !== -1 && lastActiveSceneIndexRef.current !== activeScene) {
+        soundFxService.playSceneTransition();
+      }
+      lastActiveSceneIndexRef.current = activeScene;
+
       triggerSceneSpeech(activeScene);
       if (onSceneChange) onSceneChange(activeScene);
 
@@ -329,7 +386,7 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
 
       animationFrameRef.current = requestAnimationFrame(loop);
     },
-    [totalDuration, getCurrentSceneIndex, triggerSceneSpeech, onSceneChange, renderFrame]
+    [totalDuration, getCurrentSceneIndex, triggerSceneSpeech, onSceneChange, renderFrame, script, isMuted]
   );
 
   // Toggle Play / Pause
@@ -348,8 +405,18 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
         if (ambientMusicEnabled) {
           speechService.startAmbientSoundtrack(0.2);
         }
-        const activeScene = getCurrentSceneIndex(currentTimeRef.current);
-        triggerSceneSpeech(activeScene);
+        
+        // Start single continuous audio recording if available
+        if (script?.continuousAudio?.audioBuffer && !isMuted) {
+          azureSpeechService.playAudioBuffer(
+            script.continuousAudio.audioBuffer,
+            currentTimeRef.current
+          );
+        } else {
+          const activeScene = getCurrentSceneIndex(currentTimeRef.current);
+          triggerSceneSpeech(activeScene);
+        }
+
         animationFrameRef.current = requestAnimationFrame(loop);
       } else {
         speechService.stopSpeaking();
@@ -359,7 +426,7 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
         }
       }
     },
-    [isPlaying, isPreviewUnlocked, ambientMusicEnabled, getCurrentSceneIndex, triggerSceneSpeech, loop]
+    [isPlaying, isPreviewUnlocked, ambientMusicEnabled, script, isMuted, getCurrentSceneIndex, triggerSceneSpeech, loop]
   );
 
   // Seek time handler
@@ -368,10 +435,15 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
     currentTimeRef.current = val;
     lastSpokenSceneRef.current = -1;
     speechService.stopSpeaking();
+    azureSpeechService.stopPlayback();
     renderFrame(val);
     if (isPlaying) {
-      const activeScene = getCurrentSceneIndex(val);
-      triggerSceneSpeech(activeScene);
+      if (script?.continuousAudio?.audioBuffer && !isMuted) {
+        azureSpeechService.playAudioBuffer(script.continuousAudio.audioBuffer, val);
+      } else {
+        const activeScene = getCurrentSceneIndex(val);
+        triggerSceneSpeech(activeScene);
+      }
     }
   };
 
@@ -381,6 +453,7 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
     currentTimeRef.current = 0;
     lastSpokenSceneRef.current = -1;
     speechService.stopSpeaking();
+    azureSpeechService.stopPlayback();
     renderFrame(0);
     handleTogglePlay(true);
   };
@@ -394,6 +467,7 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
     setCurrentTime(0);
     lastSpokenSceneRef.current = -1;
     speechService.stopSpeaking();
+    azureSpeechService.stopPlayback();
     renderFrame(0);
   }, [script, renderFrame]);
 
@@ -405,6 +479,7 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
       }
       speechService.stopSpeaking();
       speechService.stopAmbientSoundtrack();
+      azureSpeechService.stopPlayback();
     };
   }, []);
 
@@ -414,11 +489,9 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
     
     let baseName = script.customFileName?.trim();
     if (!baseName) {
-      // Fallback to YouTube viral title
       baseName = script.title || script.topic || 'DocuShorts_video';
     }
 
-    // Sanitize illegal filename characters
     const clean = baseName.replace(/[/\\?%*:|"<>#]+/g, '_').trim().replace(/\s+/g, '_');
     return `${clean}.webm`;
   };
@@ -435,12 +508,13 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
       handleTogglePlay(false);
       handleSeek(0);
 
-      // Start ambient music if enabled so audio track is recorded
       if (ambientMusicEnabled) {
         speechService.startAmbientSoundtrack(0.25);
       }
 
-      const audioTrack = speechService.getAudioStreamTrack();
+      let audioTrack = script.continuousAudio?.audioBuffer
+        ? azureSpeechService.getAudioStreamTrack()
+        : speechService.getAudioStreamTrack();
 
       await videoRecorderService.startRecording({
         canvas: canvasRef.current,
@@ -453,6 +527,10 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
       isPlayingRef.current = true;
       lastTimestampRef.current = null;
       lastSpokenSceneRef.current = -1;
+
+      if (script.continuousAudio?.audioBuffer) {
+        azureSpeechService.playAudioBuffer(script.continuousAudio.audioBuffer, 0);
+      }
 
       const recordStartTime = performance.now();
       const progressInterval = setInterval(() => {
@@ -474,7 +552,6 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
           setRecordingProgress(100);
           setIsRecording(false);
 
-          // Confetti celebration
           confetti({
             particleCount: 100,
             spread: 70,
@@ -524,7 +601,7 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
             </button>
           )}
           <span className="text-[11px] bg-white/5 text-rose-300 font-mono font-semibold px-2.5 py-1 rounded-xl border border-white/10 backdrop-blur-md">
-            720x1280 • 9:16
+            1080x1920 • 60fps Full HD
           </span>
         </div>
       </div>
@@ -533,8 +610,8 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
       <div className="relative w-full max-w-[320px] sm:max-w-[340px] aspect-[9/16] bg-black rounded-[2.5rem] border-[6px] border-white/10 shadow-2xl overflow-hidden group">
         <canvas
           ref={canvasRef}
-          width={720}
-          height={1280}
+          width={1080}
+          height={1920}
           className={`w-full h-full object-cover block transition-all duration-500 ${
             !isPreviewUnlocked && script ? 'blur-xl scale-105 opacity-40' : 'blur-0 opacity-100'
           }`}
@@ -669,7 +746,7 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
             </button>
           </div>
 
-          {/* Export & Download Video Button */}
+          {/* Export & Download Video Button (Download Only - No YouTube Upload in manual player) */}
           <button
             onClick={handleExportVideo}
             disabled={isRecording || !script}
@@ -685,7 +762,7 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
             ) : (
               <>
                 <Download className="w-4 h-4" />
-                <span>{t.recordAndDownload}</span>
+                <span>{t.downloadVideoBtn}</span>
               </>
             )}
           </button>
@@ -704,4 +781,3 @@ function formatTime(seconds: number): string {
     .padStart(2, '0');
   return `${m}:${s}`;
 }
-
