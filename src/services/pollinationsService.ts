@@ -132,12 +132,23 @@ function formatScriptData(
   // Split the full text logically across the target number of image scenes for subtitle synchronization
   const sentences = splitIntoSentences(fullScriptText, targetImageCount);
 
-  const defaultDurationPerScene = Math.max(4, Math.round(58 / targetImageCount));
+  // Calculate proportional durations based on sentence word counts for fluid continuous speech with 0 pause
+  const sceneTexts = Array.from({ length: targetImageCount }, (_, index) => {
+    const rawScene = rawScenes[index];
+    return rawScene?.textSegment || rawScene?.text || sentences[index] || sentences[sentences.length - 1] || '';
+  });
+
+  const wordCounts = sceneTexts.map(t => Math.max(1, t.trim().split(/\s+/).filter(Boolean).length));
+  const totalWords = wordCounts.reduce((a, b) => a + b, 0);
+  const targetTotalSecs = 58;
+
   const scenes: Scene[] = [];
 
   for (let index = 0; index < targetImageCount; index++) {
     const rawScene = rawScenes[index];
-    const textSegment = rawScene?.textSegment || rawScene?.text || sentences[index] || sentences[sentences.length - 1];
+    const textSegment = sceneTexts[index];
+    const words = wordCounts[index];
+    const proportionalDuration = Math.max(3.5, Math.round(((words / totalWords) * targetTotalSecs) * 10) / 10);
     
     const imgPrompt = rawScene?.imagePrompt || `${topic} documentary cinematic shot ${index + 1}, dramatic atmosphere, photorealistic 8k`;
     const cleanPrompt = imgPrompt.replace(/[\r\n\t]+/g, ' ').trim();
@@ -148,7 +159,7 @@ function formatScriptData(
       text: textSegment,
       imagePrompt: cleanPrompt,
       imageUrl: imageUrl,
-      durationSeconds: defaultDurationPerScene,
+      durationSeconds: proportionalDuration,
       loadedImage: null,
       imageLoading: true,
     });
@@ -296,19 +307,24 @@ function generateFallbackScript(
 
   const fullScriptText = isAr ? arabicContinuousStory : englishContinuousStory;
   const sentences = splitIntoSentences(fullScriptText, targetImageCount);
-  const defaultDurationPerScene = Math.max(4, Math.round(58 / targetImageCount));
+  const wordCounts = sentences.map(s => Math.max(1, s.trim().split(/\s+/).filter(Boolean).length));
+  const totalWords = wordCounts.reduce((a, b) => a + b, 0);
+  const targetTotalSecs = 58;
+
   const scenes: Scene[] = [];
 
   for (let i = 0; i < targetImageCount; i++) {
     const scenePrompt = `Cinematic documentary moment ${i + 1} illustrating ${topic}, dramatic atmospheric lighting, photorealistic 8k, National Geographic IMAX vertical composition`;
     const imageUrl = buildPollinationsImageUrl(scenePrompt, seedBase + i);
+    const words = wordCounts[i] || 10;
+    const proportionalDuration = Math.max(3.5, Math.round(((words / totalWords) * targetTotalSecs) * 10) / 10);
 
     scenes.push({
       id: i + 1,
       text: sentences[i] || sentences[0],
       imagePrompt: scenePrompt,
       imageUrl: imageUrl,
-      durationSeconds: defaultDurationPerScene,
+      durationSeconds: proportionalDuration,
       loadedImage: null,
       imageLoading: true,
     });

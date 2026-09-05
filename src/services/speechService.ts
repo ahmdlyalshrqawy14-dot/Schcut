@@ -27,6 +27,89 @@ class SpeechService {
   }
 
   /**
+   * Select best natural sounding voice
+   */
+  public getPreferredVoice(lang: Language): SpeechSynthesisVoice | null {
+    const voices = this.getVoices(lang);
+    if (voices.length === 0) return null;
+
+    const preferred = voices.find(v => 
+      v.name.includes('Natural') || 
+      v.name.includes('Google') || 
+      v.name.includes('Maged') || 
+      v.name.includes('Tariq') || 
+      v.name.includes('Samantha') || 
+      v.name.includes('Daniel')
+    );
+    return preferred || voices[0];
+  }
+
+  /**
+   * Speak continuous unbroken narration for all scenes with zero pauses in between
+   */
+  public speakContinuousNarration(
+    scenes: { text: string }[],
+    startSceneIndex: number = 0,
+    lang: Language = 'ar',
+    rate: number = 1.0,
+    pitch: number = 1.0,
+    callbacks?: {
+      onSceneChange?: (sceneIndex: number) => void;
+      onEnd?: () => void;
+    }
+  ) {
+    if (!this.synth) {
+      if (callbacks?.onEnd) callbacks.onEnd();
+      return;
+    }
+
+    this.stopSpeaking();
+
+    const voice = this.getPreferredVoice(lang);
+    const targetScenes = scenes.slice(startSceneIndex);
+
+    if (targetScenes.length === 0) {
+      if (callbacks?.onEnd) callbacks.onEnd();
+      return;
+    }
+
+    targetScenes.forEach((scene, offset) => {
+      const actualIndex = startSceneIndex + offset;
+      const text = scene.text.trim();
+      if (!text) return;
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = lang === 'ar' ? 'ar-SA' : 'en-US';
+      utterance.rate = rate;
+      utterance.pitch = pitch;
+      if (voice) utterance.voice = voice;
+
+      utterance.onstart = () => {
+        if (callbacks?.onSceneChange) {
+          callbacks.onSceneChange(actualIndex);
+        }
+      };
+
+      utterance.onend = () => {
+        if (offset === targetScenes.length - 1) {
+          this.currentUtterance = null;
+          if (callbacks?.onEnd) callbacks.onEnd();
+        }
+      };
+
+      utterance.onerror = (e) => {
+        console.warn(`Continuous speech error at scene ${actualIndex}:`, e);
+      };
+
+      if (offset === 0) {
+        this.currentUtterance = utterance;
+      }
+
+      this.synth!.speak(utterance);
+    });
+  }
+
+  /**
    * Speak a scene narration sentence with callbacks
    */
   public speakText(
@@ -51,19 +134,8 @@ class SpeechService {
     utterance.rate = rate;
     utterance.pitch = pitch;
 
-    const voices = this.getVoices(lang);
-    if (voices.length > 0) {
-      // Prioritize natural or premium voices if present
-      const preferred = voices.find(v => 
-        v.name.includes('Natural') || 
-        v.name.includes('Google') || 
-        v.name.includes('Maged') || 
-        v.name.includes('Tariq') || 
-        v.name.includes('Samantha') || 
-        v.name.includes('Daniel')
-      );
-      utterance.voice = preferred || voices[0];
-    }
+    const voice = this.getPreferredVoice(lang);
+    if (voice) utterance.voice = voice;
 
     utterance.onstart = () => {
       if (onStart) onStart();

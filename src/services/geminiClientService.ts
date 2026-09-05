@@ -70,22 +70,28 @@ export class GeminiClientService {
       const scenes: Scene[] = [];
       const seedBase = Math.floor(Math.random() * 900000) + 100000;
       const rawScenes = script.scenes || [];
-      const durationPerScene = Math.max(4, Math.round(58 / Math.max(1, rawScenes.length)));
+      
+      const narrations = rawScenes.map((s: any) => s.narration || s.text || '');
+      const wordCounts = narrations.map((n: string) => Math.max(1, n.trim().split(/\s+/).filter(Boolean).length));
+      const totalWords = wordCounts.reduce((a: number, b: number) => a + b, 0);
+      const targetTotalSecs = 58;
 
       let fullNarrationText = '';
 
       rawScenes.forEach((s: any, idx: number) => {
-        const narration = s.narration || s.text || '';
+        const narration = narrations[idx];
         fullNarrationText += (idx > 0 ? ' ' : '') + narration;
         const prompt = s.visualPrompt || `${topic} cinematic 8k National Geographic documentary moment ${idx + 1}`;
         const imageUrl = buildPollinationsImageUrl(prompt, seedBase + idx);
+        const words = wordCounts[idx] || 10;
+        const proportionalDuration = Math.max(3.5, Math.round(((words / totalWords) * targetTotalSecs) * 10) / 10);
 
         scenes.push({
           id: idx + 1,
           text: narration,
           imagePrompt: prompt,
           imageUrl,
-          durationSeconds: durationPerScene,
+          durationSeconds: proportionalDuration,
           loadedImage: null,
           imageLoading: true,
         });

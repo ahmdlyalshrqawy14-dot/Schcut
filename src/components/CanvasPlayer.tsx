@@ -323,26 +323,23 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
     [script, getCurrentSceneIndex, drawPlaceholder, drawSubtitles]
   );
 
-  // Trigger speech when scene changes during playback (only for fallback TTS)
-  const triggerSceneSpeech = useCallback(
-    (sceneIndex: number) => {
-      if (!isPlayingRef.current || isMuted || !script || !script.scenes[sceneIndex]) return;
+  // Start audio playback (unbroken continuous narration across all scenes)
+  const startSpeech = useCallback(
+    (fromSceneIndex: number = 0) => {
+      if (isMuted || !script || !script.scenes || script.scenes.length === 0) return;
 
-      // If we have a single continuous audio recording for the whole video, it's already playing
       if (script.continuousAudio?.audioBuffer) {
-        return;
-      }
-
-      if (lastSpokenSceneRef.current === sceneIndex) return;
-      lastSpokenSceneRef.current = sceneIndex;
-
-      const scene = script.scenes[sceneIndex];
-
-      // If neural audio buffer was synthesized per scene
-      if (scene.audioBuffer) {
-        azureSpeechService.playAudioBuffer(scene.audioBuffer, 0);
+        azureSpeechService.playAudioBuffer(
+          script.continuousAudio.audioBuffer,
+          currentTimeRef.current
+        );
       } else {
-        speechService.speakText(scene.text, videoLang, playbackRateRef.current);
+        speechService.speakContinuousNarration(
+          script.scenes,
+          fromSceneIndex,
+          videoLang,
+          playbackRateRef.current
+        );
       }
     },
     [isMuted, script, videoLang]
@@ -365,9 +362,7 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
       if (nextTime >= totalDuration) {
         nextTime = 0;
         lastSpokenSceneRef.current = -1;
-        if (script?.continuousAudio?.audioBuffer && !isMuted) {
-          azureSpeechService.playAudioBuffer(script.continuousAudio.audioBuffer, 0);
-        }
+        startSpeech(0);
       }
 
       currentTimeRef.current = nextTime;
@@ -379,14 +374,13 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
       }
       lastActiveSceneIndexRef.current = activeScene;
 
-      triggerSceneSpeech(activeScene);
       if (onSceneChange) onSceneChange(activeScene);
 
       renderFrame(nextTime);
 
       animationFrameRef.current = requestAnimationFrame(loop);
     },
-    [totalDuration, getCurrentSceneIndex, triggerSceneSpeech, onSceneChange, renderFrame, script, isMuted]
+    [totalDuration, getCurrentSceneIndex, onSceneChange, renderFrame, startSpeech]
   );
 
   // Toggle Play / Pause
@@ -406,16 +400,8 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
           speechService.startAmbientSoundtrack(0.2);
         }
         
-        // Start single continuous audio recording if available
-        if (script?.continuousAudio?.audioBuffer && !isMuted) {
-          azureSpeechService.playAudioBuffer(
-            script.continuousAudio.audioBuffer,
-            currentTimeRef.current
-          );
-        } else {
-          const activeScene = getCurrentSceneIndex(currentTimeRef.current);
-          triggerSceneSpeech(activeScene);
-        }
+        const activeScene = getCurrentSceneIndex(currentTimeRef.current);
+        startSpeech(activeScene);
 
         animationFrameRef.current = requestAnimationFrame(loop);
       } else {
@@ -426,7 +412,7 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
         }
       }
     },
-    [isPlaying, isPreviewUnlocked, ambientMusicEnabled, script, isMuted, getCurrentSceneIndex, triggerSceneSpeech, loop]
+    [isPlaying, isPreviewUnlocked, ambientMusicEnabled, getCurrentSceneIndex, startSpeech, loop]
   );
 
   // Seek time handler
@@ -438,12 +424,8 @@ export const CanvasPlayer: React.FC<CanvasPlayerProps> = ({
     azureSpeechService.stopPlayback();
     renderFrame(val);
     if (isPlaying) {
-      if (script?.continuousAudio?.audioBuffer && !isMuted) {
-        azureSpeechService.playAudioBuffer(script.continuousAudio.audioBuffer, val);
-      } else {
-        const activeScene = getCurrentSceneIndex(val);
-        triggerSceneSpeech(activeScene);
-      }
+      const activeScene = getCurrentSceneIndex(val);
+      startSpeech(activeScene);
     }
   };
 
