@@ -1,0 +1,6 @@
+{
+  "name": "ShortsDoc AI - YouTube Shorts Generator",
+  "description": "Automated documentary YouTube Shorts video creator with AI scripts, cinematic 9:16 Ken Burns canvas rendering, synchronized voiceover, and full SEO metadata.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
