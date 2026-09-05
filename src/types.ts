@@ -1,5 +1,5 @@
 export type Language = 'ar' | 'en';
-export type ProductionMode = 'manual' | 'scheduled';
+export type ProductionMode = 'auto' | 'manual' | 'scheduled';
 
 export interface Scene {
   id: number;

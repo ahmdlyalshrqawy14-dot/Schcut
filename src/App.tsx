@@ -6,7 +6,8 @@ import {
   Layers,
   Settings as SettingsIcon,
   Video,
-  Clock
+  Clock,
+  Zap
 } from 'lucide-react';
 import { Language, ShortsScript, GenerationProgress, ProductionMode } from './types';
 import { translations } from './constants/translations';
@@ -20,6 +21,7 @@ import { StandaloneModal } from './components/StandaloneModal';
 import { AzureSpeechSettings } from './components/AzureSpeechSettings';
 import { SettingsModal } from './components/SettingsModal';
 import { SchedulerDashboard } from './components/SchedulerDashboard';
+import { AutoVideoCreator } from './components/AutoVideoCreator';
 import { generateDocumentaryScript, preloadImagesInBatches } from './services/pollinationsService';
 import { speechService } from './services/speechService';
 import { azureSpeechService } from './services/azureSpeechService';
@@ -27,7 +29,7 @@ import { azureSpeechService } from './services/azureSpeechService';
 export default function App() {
   const [uiLang, setUiLang] = useState<Language>('ar');
   const [videoLang, setVideoLang] = useState<Language>('ar');
-  const [productionMode, setProductionMode] = useState<ProductionMode>('scheduled');
+  const [productionMode, setProductionMode] = useState<ProductionMode>('auto');
   const [sceneCount, setSceneCount] = useState<number>(6);
   const [fileName, setFileName] = useState<string>('');
   const [topic, setTopic] = useState<string>('أسرار الثقوب السوداء وكيف تبتلع الضوء والوقت');
@@ -230,26 +232,26 @@ export default function App() {
       {/* Main Studio Workspace */}
       <main className="max-w-7xl mx-auto px-4 py-6 flex-1 w-full space-y-6">
         
-        {/* Mode Selector (24/7 Autopilot Hub vs Custom Studio) */}
+        {/* Mode Selector (Auto Video Maker vs Custom Studio vs 24/7 Autopilot) */}
         <div className="flex items-center justify-between bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-1.5 shadow-xl">
-          <div className="flex gap-1.5 flex-1 sm:flex-initial">
-            {/* Scheduled 24/7 Autopilot Mode Button (Primary) */}
+          <div className="flex gap-1.5 flex-1 sm:flex-initial overflow-x-auto">
+            {/* Auto AI Mode Button (Instant 1-Click Video Maker) */}
             <button
-              onClick={() => setProductionMode('scheduled')}
-              className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all ${
-                productionMode === 'scheduled'
+              onClick={() => setProductionMode('auto')}
+              className={`flex-1 sm:flex-initial px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
+                productionMode === 'auto'
                   ? 'bg-gradient-to-r from-red-600 via-rose-600 to-rose-500 text-white shadow-lg shadow-red-900/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
               }`}
             >
-              <Calendar className="w-4 h-4" />
-              <span>{t.autopilotNavTitle || t.scheduledMode}</span>
+              <Zap className="w-4 h-4 fill-current text-amber-300" />
+              <span>{t.autoNavTitle || t.autoMode}</span>
             </button>
 
             {/* Manual Custom Studio Button */}
             <button
               onClick={() => setProductionMode('manual')}
-              className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+              className={`flex-1 sm:flex-initial px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
                 productionMode === 'manual'
                   ? 'bg-gradient-to-r from-red-600 via-rose-600 to-rose-500 text-white shadow-lg shadow-red-900/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
@@ -258,18 +260,50 @@ export default function App() {
               <Video className="w-4 h-4" />
               <span>{t.manualNavTitle || t.manualMode}</span>
             </button>
+
+            {/* Scheduled 24/7 Autopilot Mode Button */}
+            <button
+              onClick={() => setProductionMode('scheduled')}
+              className={`flex-1 sm:flex-initial px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
+                productionMode === 'scheduled'
+                  ? 'bg-gradient-to-r from-red-600 via-rose-600 to-rose-500 text-white shadow-lg shadow-red-900/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              <span>{t.autopilotNavTitle || t.scheduledMode}</span>
+            </button>
           </div>
 
           <button
             onClick={() => setIsSettingsModalOpen(true)}
-            className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 border border-white/10 transition-colors"
+            className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 border border-white/10 transition-colors shrink-0"
           >
             <SettingsIcon className="w-3.5 h-3.5 text-rose-400" />
             <span>{t.settingsNavBtn}</span>
           </button>
         </div>
 
-        {/* MODE A: MANUAL MODE */}
+        {/* MODE 1: AUTO AI MODE (Instant 1-Click Real AI Full Video Creator) */}
+        {productionMode === 'auto' && (
+          <div className="space-y-6 animate-fadeIn">
+            <AutoVideoCreator
+              lang={uiLang}
+              onOpenSettings={() => setIsSettingsModalOpen(true)}
+              onSwitchToManual={(createdScript) => {
+                if (createdScript) {
+                  setScript(createdScript);
+                  setTopic(createdScript.topic);
+                }
+                setProductionMode('manual');
+              }}
+              ambientMusicEnabled={ambientMusicEnabled}
+              onToggleAmbientMusic={handleToggleAmbientMusic}
+            />
+          </div>
+        )}
+
+        {/* MODE 2: MANUAL CUSTOM STUDIO MODE */}
         {productionMode === 'manual' && (
           <div className="space-y-6 animate-fadeIn">
             {/* Topic & Parameters Control Panel */}
