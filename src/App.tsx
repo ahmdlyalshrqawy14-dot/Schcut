@@ -287,6 +287,7 @@ export default function App() {
               onChangeFileName={setFileName}
               progress={progress}
               isGenerating={isGenerating}
+              onOpenSettings={() => setIsSettingsModalOpen(true)}
             />
 
             {/* 2-Column Responsive Workspace Grid */}

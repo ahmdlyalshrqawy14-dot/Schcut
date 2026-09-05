@@ -1,8 +1,9 @@
 import React from 'react';
-import { Sparkles, Video, Loader2, Compass, Globe, Sliders, FileText, Clock } from 'lucide-react';
+import { Sparkles, Video, Loader2, Compass, Globe, Sliders, FileText, Clock, KeyRound, Bot } from 'lucide-react';
 import { Language, GenerationProgress } from '../types';
 import { translations } from '../constants/translations';
 import { TOPIC_PRESETS } from '../constants/topics';
+import { geminiClientService } from '../services/geminiClientService';
 
 interface TopicInputProps {
   topic: string;
@@ -18,6 +19,7 @@ interface TopicInputProps {
   onChangeFileName: (val: string) => void;
   progress: GenerationProgress;
   isGenerating: boolean;
+  onOpenSettings?: () => void;
 }
 
 export const TopicInput: React.FC<TopicInputProps> = ({
@@ -34,23 +36,40 @@ export const TopicInput: React.FC<TopicInputProps> = ({
   onChangeFileName,
   progress,
   isGenerating,
+  onOpenSettings,
 }) => {
   const t = translations[uiLang];
+  const hasGeminiKey = Boolean(geminiClientService.getStoredApiKey());
 
   return (
     <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-5">
       {/* 1. Topic Input Area */}
       <div className="space-y-2">
-        <label className="block text-xs uppercase tracking-widest text-slate-400 font-bold flex items-center justify-between">
-          <span className="flex items-center gap-2 text-slate-300">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <label className="text-xs uppercase tracking-widest text-slate-400 font-bold flex items-center gap-2">
             <Compass className="w-4 h-4 text-rose-400" />
-            {t.topicLabel}
-          </span>
-          <span className="text-[11px] text-slate-400 font-mono font-medium lowercase tracking-normal flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-rose-400" />
-            {t.estimatedDuration} ~58s ({sceneCount} {t.scenesCountSuffix})
-          </span>
-        </label>
+            <span className="text-slate-200">{t.topicLabel}</span>
+          </label>
+          
+          <div className="flex items-center gap-2">
+            {onOpenSettings && (
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                className="text-[11px] px-2.5 py-1 rounded-full bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-300 font-medium flex items-center gap-1.5 transition-colors"
+                title="إعدادات مفتاح Google Gemini API"
+              >
+                <Bot className="w-3 h-3 text-blue-400" />
+                <span>Google Gemini API</span>
+                <span className={`w-1.5 h-1.5 rounded-full ${hasGeminiKey ? 'bg-emerald-400' : 'bg-blue-400 animate-pulse'}`} />
+              </button>
+            )}
+            <span className="text-[11px] text-slate-400 font-mono font-medium lowercase tracking-normal flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-rose-400" />
+              {t.estimatedDuration} ~58s ({sceneCount} {t.scenesCountSuffix})
+            </span>
+          </div>
+        </div>
 
         {/* Input Bar */}
         <div className="flex flex-col sm:flex-row gap-3">

@@ -2,14 +2,59 @@ import { Language, ShortsScript, Scene } from '../types';
 import { buildPollinationsImageUrl } from './pollinationsService';
 
 export class GeminiClientService {
+  private static readonly STORAGE_KEY = 'docushorts_gemini_api_key';
   private isAvailable: boolean | null = null;
 
   /**
-   * Check if Gemini API is configured on the server
+   * Get stored custom Gemini API Key
+   */
+  public getStoredApiKey(): string {
+    if (typeof window === 'undefined') return '';
+    return localStorage.getItem(GeminiClientService.STORAGE_KEY) || '';
+  }
+
+  /**
+   * Save custom Gemini API Key
+   */
+  public saveApiKey(key: string) {
+    if (typeof window === 'undefined') return;
+    if (key && key.trim()) {
+      localStorage.setItem(GeminiClientService.STORAGE_KEY, key.trim());
+    } else {
+      localStorage.removeItem(GeminiClientService.STORAGE_KEY);
+    }
+    this.isAvailable = null;
+  }
+
+  /**
+   * Test a custom Gemini API Key
+   */
+  public async testApiKey(key: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const res = await fetch('/api/gemini/test-key', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-gemini-api-key': key.trim(),
+        },
+        body: JSON.stringify({ apiKey: key.trim() }),
+      });
+      const data = await res.json();
+      return { success: !!data.success, error: data.error };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Connection failed' };
+    }
+  }
+
+  /**
+   * Check if Gemini API is configured on the server or in storage
    */
   public async checkStatus(): Promise<boolean> {
     try {
-      const res = await fetch('/api/gemini/status');
+      const customKey = this.getStoredApiKey();
+      const res = await fetch('/api/gemini/status', {
+        headers: customKey ? { 'x-gemini-api-key': customKey } : {},
+      });
       if (res.ok) {
         const data = await res.json();
         this.isAvailable = Boolean(data.available);
@@ -26,9 +71,13 @@ export class GeminiClientService {
    */
   public async suggestTopics(niche: string, lang: Language = 'ar', count: number = 5): Promise<string[]> {
     try {
+      const customKey = this.getStoredApiKey();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (customKey) headers['x-gemini-api-key'] = customKey;
+
       const res = await fetch('/api/gemini/suggest-topics', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ niche, lang, count }),
       });
 
@@ -55,9 +104,13 @@ export class GeminiClientService {
     customFileName?: string
   ): Promise<ShortsScript | null> {
     try {
+      const customKey = this.getStoredApiKey();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (customKey) headers['x-gemini-api-key'] = customKey;
+
       const res = await fetch('/api/gemini/generate-script', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ topic, lang, sceneCount }),
       });
 

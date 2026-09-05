@@ -33,6 +33,7 @@ import { schedulerService } from '../services/schedulerService';
 import { imageEnginesService, ImageEngineConfig } from '../services/imageEnginesService';
 import { soundFxService } from '../services/soundFxService';
 import { soundtrackService } from '../services/soundtrackService';
+import { geminiClientService } from '../services/geminiClientService';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -57,6 +58,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [activeTab, setActiveTab] = useState<'apis' | 'schedule' | 'general'>('apis');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Google Gemini State
+  const [geminiApiKey, setGeminiApiKey] = useState(geminiClientService.getStoredApiKey());
+  const [isTestingGemini, setIsTestingGemini] = useState(false);
+  const [geminiStatus, setGeminiStatus] = useState<string | null>(null);
+  const [showGeminiGuide, setShowGeminiGuide] = useState(false);
+
   // Azure State
   const [azureConfig, setAzureConfig] = useState<AzureSpeechConfig>(azureSpeechService.getStoredConfig());
   const [azureVoices, setAzureVoices] = useState<AzureVoiceInfo[]>(AzureSpeechService.DEFAULT_NEURAL_VOICES);
@@ -79,6 +86,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      setGeminiApiKey(geminiClientService.getStoredApiKey());
       setAzureConfig(azureSpeechService.getStoredConfig());
       setYtClientId(youtubeUploadService.getStoredClientId());
       setImageConfig(imageEnginesService.getConfig());
@@ -90,6 +98,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  // Test Gemini API Key
+  const handleTestGeminiKey = async () => {
+    if (!geminiApiKey.trim()) {
+      setGeminiStatus(isAr ? '⚠️ يرجى إدخال مفتاح Google Gemini أولاً.' : '⚠️ Please enter a Google Gemini API Key first.');
+      return;
+    }
+    setIsTestingGemini(true);
+    setGeminiStatus(isAr ? 'جاري الاتصال والتحقق من المفتاح...' : 'Verifying Google Gemini Key...');
+    const result = await geminiClientService.testApiKey(geminiApiKey);
+    setIsTestingGemini(false);
+    if (result.success) {
+      setGeminiStatus(isAr ? '✅ الاتصال ناجح! مفتاح Google Gemini فعال ومستعد لإنشاء السكربتات والأفكار.' : '✅ Connection verified! Google Gemini AI is ready to generate scripts.');
+    } else {
+      setGeminiStatus(isAr ? `❌ فشل الاتصال: ${result.error || 'تأكد من صحة المفتاح'}` : `❌ Failed: ${result.error || 'Invalid API Key'}`);
+    }
+  };
 
   // Azure Voice Fetching
   const handleFetchVoices = async () => {
@@ -182,6 +207,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     const backupData = {
       version: '1.0',
       exportedAt: new Date().toISOString(),
+      geminiApiKey: geminiApiKey,
       azure: azureConfig,
       youtubeClientId: ytClientId,
       imageEngines: imageConfig,
@@ -208,6 +234,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target?.result as string);
+        if (data.geminiApiKey) setGeminiApiKey(data.geminiApiKey);
         if (data.azure) setAzureConfig(data.azure);
         if (data.youtubeClientId) setYtClientId(data.youtubeClientId);
         if (data.imageEngines) setImageConfig(data.imageEngines);
@@ -222,6 +249,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // Save All Settings
   const handleSaveAll = () => {
+    geminiClientService.saveApiKey(geminiApiKey);
     azureSpeechService.saveConfig(azureConfig);
     youtubeUploadService.saveClientId(ytClientId.trim());
     imageEnginesService.saveConfig(imageConfig);
@@ -245,7 +273,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-base text-slate-100">{t.settingsModalTitle}</h3>
-              <p className="text-xs text-slate-400">Azure Speech • YouTube API • 24/7 Scheduler</p>
+              <p className="text-xs text-slate-400">Google Gemini • Azure Speech • YouTube API • Scheduler</p>
             </div>
           </div>
           <button
@@ -298,6 +326,88 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* TAB 1: APIs & INTEGRATIONS */}
           {activeTab === 'apis' && (
             <div className="space-y-6">
+              {/* GOOGLE GEMINI AI CARD */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-b from-blue-950/30 to-indigo-950/20 border border-blue-500/20 space-y-4 shadow-lg">
+                <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-blue-200 text-xs">{t.geminiSectionTitle}</h4>
+                      <p className="text-[11px] text-slate-400">{t.geminiSectionDesc}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowGeminiGuide(!showGeminiGuide)}
+                    className="text-[11px] text-blue-400 hover:text-blue-300 flex items-center gap-1 font-semibold"
+                  >
+                    <HelpCircle className="w-3.5 h-3.5" />
+                    <span>{showGeminiGuide ? 'إخفاء الدليل' : 'كيفية الحصول على المفتاح'}</span>
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+                        <KeyRound className="w-3.5 h-3.5 text-blue-400" />
+                        <span>{t.geminiApiKeyLabel}</span>
+                      </label>
+                      <a
+                        href="https://aistudio.google.com/app/apikey"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[10px] text-blue-400 hover:text-blue-300 flex items-center gap-1 font-medium underline"
+                      >
+                        <span>Google AI Studio</span>
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="password"
+                        value={geminiApiKey}
+                        onChange={(e) => setGeminiApiKey(e.target.value)}
+                        placeholder={t.geminiApiKeyPlaceholder}
+                        className="flex-1 px-3 py-2 bg-black/40 rounded-xl border border-white/10 text-xs text-slate-200 focus:border-blue-500 focus:outline-none font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleTestGeminiKey}
+                        disabled={isTestingGemini}
+                        className="px-3.5 py-2 rounded-xl bg-blue-600/30 hover:bg-blue-600/40 border border-blue-500/40 text-blue-300 text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 disabled:opacity-50"
+                      >
+                        {isTestingGemini ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Check className="w-3.5 h-3.5" />
+                        )}
+                        <span>{t.geminiTestKeyBtn}</span>
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-400">{t.geminiKeySaved}</p>
+                  </div>
+
+                  {geminiStatus && (
+                    <div className="text-[11px] px-3 py-1.5 bg-black/50 rounded-xl border border-white/10 text-slate-200">
+                      {geminiStatus}
+                    </div>
+                  )}
+
+                  {/* Gemini Guide */}
+                  {showGeminiGuide && (
+                    <div className="p-3 bg-blue-950/40 border border-blue-500/30 rounded-xl text-xs space-y-1.5 text-slate-300 animate-fadeIn">
+                      <div className="font-bold text-blue-300">{t.geminiKeyGuide}</div>
+                      <p className="text-[11px] leading-relaxed">{t.geminiStep1}</p>
+                      <p className="text-[11px] leading-relaxed">{t.geminiStep2}</p>
+                      <p className="text-[11px] leading-relaxed">{t.geminiStep3}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Image Generation Multi-Engine AI Card */}
               <div className="p-4 sm:p-5 rounded-2xl bg-white/5 border border-white/10 space-y-4">
                 <div className="flex items-center justify-between border-b border-white/10 pb-3">

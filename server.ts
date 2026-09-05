@@ -8,39 +8,57 @@ const PORT = 3000;
 
 app.use(express.json({ limit: "50mb" }));
 
-// Lazy Google Gemini Client
-let geminiClient: GoogleGenAI | null = null;
-function getGeminiClient(): GoogleGenAI | null {
-  const apiKey = process.env.GEMINI_API_KEY;
+// Google Gemini Client factory
+function getGeminiClient(customKey?: string): GoogleGenAI | null {
+  const apiKey = customKey || process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
-  if (!geminiClient) {
-    geminiClient = new GoogleGenAI({
-      apiKey,
-      httpOptions: {
-        headers: {
-          "User-Agent": "aistudio-build",
-        },
+  return new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: {
+        "User-Agent": "aistudio-build",
       },
-    });
-  }
-  return geminiClient;
+    },
+  });
 }
 
 // Check Gemini API Availability
 app.get("/api/gemini/status", (req, res) => {
-  const isAvailable = Boolean(process.env.GEMINI_API_KEY);
+  const customKey = req.headers["x-gemini-api-key"] as string;
+  const isAvailable = Boolean(customKey || process.env.GEMINI_API_KEY);
   res.json({ available: isAvailable });
+});
+
+// Test Gemini API Key
+app.post("/api/gemini/test-key", async (req, res) => {
+  try {
+    const customKey = (req.headers["x-gemini-api-key"] as string) || req.body.apiKey;
+    const ai = getGeminiClient(customKey);
+    if (!ai) {
+      return res.status(400).json({ success: false, error: "No API key provided." });
+    }
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.8-flash",
+      contents: "Respond with 'OK' only.",
+    });
+
+    res.json({ success: true, response: response.text?.trim() });
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: err.message || "Invalid API Key" });
+  }
 });
 
 // 1. Generate Smart Viral Topics from Niche / Random Idea
 app.post("/api/gemini/suggest-topics", async (req, res) => {
   try {
     const { niche, lang = "ar", count = 5 } = req.body;
-    const ai = getGeminiClient();
+    const customKey = req.headers["x-gemini-api-key"] as string;
+    const ai = getGeminiClient(customKey);
 
     if (!ai) {
       return res.status(503).json({
-        error: "GEMINI_API_KEY not configured in environment.",
+        error: "GEMINI_API_KEY not configured in environment or settings.",
         fallback: true,
       });
     }
@@ -72,11 +90,12 @@ Return JSON array of strings only: ["Topic 1", "Topic 2", ...] without any extra
 app.post("/api/gemini/generate-script", async (req, res) => {
   try {
     const { topic, lang = "ar", sceneCount = 6 } = req.body;
-    const ai = getGeminiClient();
+    const customKey = req.headers["x-gemini-api-key"] as string;
+    const ai = getGeminiClient(customKey);
 
     if (!ai) {
       return res.status(503).json({
-        error: "GEMINI_API_KEY not configured in environment.",
+        error: "GEMINI_API_KEY not configured in environment or settings.",
         fallback: true,
       });
     }
